@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -85,10 +86,36 @@ func GetSecrets(ctx context.Context, cfg Config) (map[string]interface{}, error)
 		return nil, errors.Wrap(err, "unable to login to vault")
 	}
 
-	// fetch secrets
-	secrets, err := vClient.Logical().Read(cfg.SecretPath)
+	// do v2 stuff
+	path := cfg.SecretPath
+
+	// fetch
+	// from https://github.com/hashicorp/vault/blob/master/command/kv_get.go#L94
+	mountPath, v2, err := isKVv2(path, c)
 	if err != nil {
-		return nil, errors.Wrap(err, "unable to get secrets")
+		return nil, err
+	}
+
+	var versionParam map[string]string
+
+	if v2 {
+		path = addPrefixToVKVPath(path, mountPath, "data")
+		if err != nil {
+			return nil, err
+		}
+		log.Printf("PATH IS NOW %q", path)
+		/*
+			if c.flagVersion > 0 {
+				versionParam = map[string]string{
+					"version": fmt.Sprintf("%d", c.flagVersion),
+				}
+			}
+		*/
+	}
+
+	secrets, err := kvReadRequest(c, path, versionParam)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("Error reading %s: %s", path, err))
 	}
 	if secrets == nil {
 		return nil, errors.New("no secrets found")
@@ -199,12 +226,12 @@ func newLocalClient(ctx context.Context, cfg Config) (*api.Client, error) {
 	vcfg := api.DefaultConfig()
 	vcfg.Address = cfg.VaultAddress
 	vcfg.HttpClient = getHTTPClient(ctx)
-	vClient, err := api.NewClient(vcfg)
+	c, err := api.NewClient(vcfg)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to init vault client")
 	}
 
-	vClient.SetToken(cfg.LocalToken)
+	c.SetToken(cfg.LocalToken)
 
 	return vClient, nil
 }

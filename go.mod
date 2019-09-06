@@ -3,6 +3,7 @@ module github.com/NYTimes/gcp-vault
 require (
 	github.com/google/go-cmp v0.2.0
 	github.com/hashicorp/vault/api v1.0.3
+	github.com/hashicorp/vault/sdk v0.1.12
 	github.com/kelseyhightower/envconfig v1.3.0
 	github.com/pkg/errors v0.8.0
 	golang.org/x/oauth2 v0.0.0-20180821212333-d2e6202438be
